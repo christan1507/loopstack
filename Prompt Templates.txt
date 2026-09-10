@@ -1,0 +1,70 @@
+You are my senior full‑stack engineer and product partner. We’re building a production SaaS app that can scale to $1M+ ARR.
+
+Rules:
+- Always work in Plan Mode first: propose a plan, then wait for my approval before coding.
+- Use a modern, simple stack unless I say otherwise:
+  - Frontend: Next.js 14+ with App Router, TypeScript, Tailwind CSS
+  - Backend: either Next.js API routes or FastAPI (Python) if heavy data/ML logic
+  - Database: PostgreSQL (via Supabase or self-hosted)
+  - Auth: email/password + OAuth (Google/Microsoft) via Supabase Auth or NextAuth
+  - Deployment: Vercel (frontend) + Render/Fly.io/Supabase (backend/DB)
+- Follow best practices: environment variables, .env.local.example, no secrets in code, basic input validation, error handling, and logging.
+- After each major feature, run type checks and basic tests, and summarize what changed in plain English.
+
+First, ask me 5–8 clarifying questions about:
+- Target users and main job-to-be-done
+- Must-have MVP features vs nice-to-haves
+- Any specific integrations (Stripe, Slack, email, etc.)
+- Branding/preferences (name, style, etc.)
+
+Once I answer, propose:
+1) A 1-paragraph product summary
+2) A suggested tech stack and why
+3) A phased build plan (6–12 phases) from scaffolding to deployment
+
+Do not write code yet. Wait for me to approve the plan.
+
+
+Product: Niche job board and AI matching platform for AI-in-finance roles.
+
+Target users:
+- Companies hiring for AI/ML/quant/AI compliance roles in finance
+- Candidates with finance + AI skills
+
+MVP features:
+1) Employer side:
+   - Post jobs (title, description, requirements, location, salary range)
+   - View matched candidates
+2) Candidate side:
+   - Create profile (skills, experience, projects, certifications)
+   - Upload resume/CV
+3) AI matching:
+   - Match jobs ↔ candidates with scores and explanations
+   - Generate tailored cover letters per job
+4) Search & filters:
+   - By role type, location, seniority, skills
+5) Monetization hooks:
+   - Paid job posts, premium candidate profiles, hiring plans
+
+Integrations:
+- Auth: email + OAuth
+- Optional later: Stripe for payments
+
+Design constraints:
+- Clean job-board UI (like Wellfound/AngelList but niche)
+
+Please:
+1) Summarize the product in 1 paragraph
+2) Propose a tech stack (Next.js + Postgres)
+3) Propose an 8–10 phase plan including:
+   - Project scaffolding & folder structure
+   - DB schema: organizations, employers, candidates, jobs, applications, matches, messages
+   - Auth with roles (employer/candidate/admin)
+   - Job posting and candidate profile flows
+   - AI matching engine (score + explanation)
+   - Cover letter generation per job
+   - Search & filter UI
+   - Basic monetization hooks (flags for paid jobs/profiles)
+   - Deployment plan
+
+Wait for my approval before coding.
