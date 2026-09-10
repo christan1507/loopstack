@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terrain Flyover</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+  canvas { display: block; }
+  #hud {
+    position: fixed; top: 20px; left: 20px; z-index: 10;
+    color: rgba(255,255,255,0.4); font-size: 11px; letter-spacing: 1px;
+    text-transform: uppercase; line-height: 1.8;
+  }
+  #hud span { color: rgba(99,102,241,0.7); }
+  #speed-control {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 15px; z-index: 10;
+    color: rgba(255,255,255,0.4); font-size: 12px;
+  }
+  #speed-control input[type=range] { width: 150px; accent-color: #6366f1; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div>ALTITUDE: <span id="alt">50</span>m</div>
+  <div>SPEED: <span id="spd">1.0</span>x</div>
+  <div>TERRAIN: <span>PROCEDURAL</span></div>
+</div>
+<div id="speed-control">
+  <span>SLOW</span>
+  <input type="range" id="speed" min="0.1" max="3" step="0.1" value="1">
+  <span>FAST</span>
+</div>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0a1a);
+scene.fog = new THREE.FogExp2(0x0a0a1a, 0.008);
+
+const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 500);
+camera.position.set(0, 30, 0);
+camera.rotation.x = -Math.PI / 2;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+document.body.appendChild(renderer.domElement);
+
+// Terrain
+const segments = 200;
+const terrainSize = 200;
+const geometry = new THREE.PlaneGeometry(terrainSize, terrainSize, segments, segments);
+
+function generateTerrain(zOffset) {
+  const pos = geometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    let h = 0;
+    h += Math.sin(x * 0.05 + zOffset * 0.3) * Math.cos(y * 0.05) * 8;
+    h += Math.sin(x * 0.12 + 1.3) * Math.sin(y * 0.1 + 2.1) * 4;
+    h += Math.sin(x * 0.25 + y * 0.2 + zOffset * 0.5) * 2;
+    h += Math.cos(x * 0.4 - y * 0.3) * 1;
+    h += Math.abs(Math.sin(x * 0.03 + zOffset * 0.15) * Math.cos(y * 0.03)) * 6;
+    pos.setZ(i, h);
+  }
+  geometry.computeVertexNormals();
+  pos.needsUpdate = true;
+}
+generateTerrain(0);
+
+// Height-based coloring
+const colors = new Float32Array(geometry.attributes.position.count * 3);
+const posArr = geometry.attributes.position;
+for (let i = 0; i < posArr.count; i++) {
+  const h = posArr.getZ(i);
+  const t = (h + 15) / 30;
+  const c = new THREE.Color();
+  if (t < 0.3) c.setHSL(0.6, 0.5, 0.05 + t);
+  else if (t < 0.5) c.setHSL(0.45, 0.4, 0.1 + t);
+  else if (t < 0.7) c.setHSL(0.25, 0.3, 0.15 + t);
+  else if (t < 0.85) c.setHSL(0.1, 0.2, 0.2 + t);
+  else c.setHSL(0, 0, 0.5 + t * 0.5);
+  colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
+}
+geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+const terrainMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0.1, flatShading: true, side: THREE.DoubleSide });
+const terrain = new THREE.Mesh(geometry, terrainMat);
+terrain.rotation.x = -Math.PI / 2;
+scene.add(terrain);
+
+// Water
+const waterGeo = new THREE.PlaneGeometry(terrainSize * 2, terrainSize * 2);
+const waterMat = new THREE.MeshStandardMaterial({ color: 0x0a2a4a, roughness: 0.1, metalness: 0.8, transparent: true, opacity: 0.7 });
+const water = new THREE.Mesh(waterGeo, waterMat);
+water.rotation.x = -Math.PI / 2;
+water.position.y = -2;
+scene.add(water);
+
+scene.add(new THREE.AmbientLight(0x404060, 0.6));
+const sun = new THREE.DirectionalLight(0xffeedd, 1.5);
+sun.position.set(50, 100, 50);
+scene.add(sun);
+scene.add(new THREE.HemisphereLight(0x8888ff, 0x443322, 0.4));
+
+// Stars
+const starCount = 3000;
+const starPos = new Float32Array(starCount * 3);
+for (let i = 0; i < starCount; i++) {
+  starPos[i * 3] = (Math.random() - 0.5) * 400;
+  starPos[i * 3 + 1] = Math.random() * 200 + 20;
+  starPos[i * 3 + 2] = (Math.random() - 0.5) * 400;
+}
+const starGeo = new THREE.BufferGeometry();
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.15, transparent: true, opacity: 0.8 })));
+
+let speed = 1, distance = 0;
+document.getElementById('speed').addEventListener('input', e => { speed = parseFloat(e.target.value); });
+
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  distance += clock.getDelta() * speed * 5;
+  generateTerrain(distance * 0.3);
+  terrain.position.z = -distance;
+  document.getElementById('alt').textContent = Math.round(camera.position.y);
+  document.getElementById('spd').textContent = speed.toFixed(1);
+  renderer.render(scene, camera);
+}
+animate();
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

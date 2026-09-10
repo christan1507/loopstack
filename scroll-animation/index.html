@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scroll-Driven 3D Animation</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; font-family: 'Segoe UI', sans-serif; color: #fff; }
+  #canvas { position: fixed; top: 0; left: 0; z-index: 0; }
+  .section {
+    position: relative; z-index: 1; height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .section:nth-child(odd) { justify-content: flex-start; padding-left: 10%; }
+  .section:nth-child(even) { justify-content: flex-end; padding-right: 10%; }
+  .card {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(30px); border-radius: 20px; padding: 40px;
+    max-width: 380px; pointer-events: auto;
+  }
+  .card h2 { font-size: 28px; margin-bottom: 12px; font-weight: 600; }
+  .card p { color: rgba(255,255,255,0.5); line-height: 1.7; font-size: 14px; }
+  .card .num {
+    font-size: 64px; font-weight: 800; color: rgba(99,102,241,0.3);
+    line-height: 1; margin-bottom: 8px;
+  }
+  #scroll-hint {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    color: rgba(255,255,255,0.3); font-size: 12px; letter-spacing: 2px;
+    text-transform: uppercase; z-index: 2;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 0.8; } }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="scroll-hint">Scroll to explore</div>
+<div class="section"><div class="card"><div class="num">01</div><h2>Origins</h2><p>A single point of light emerges from the void, beginning the journey through digital space.</p></div></div>
+<div class="section"><div class="card"><div class="num">02</div><h2>Expansion</h2><p>Structures form and multiply. Complexity arises from simple geometric principles.</p></div></div>
+<div class="section"><div class="card"><div class="num">03</div><h2>Convergence</h2><p>Elements align into a unified whole. Fragments coalesce into something greater.</p></div></div>
+<div class="section"><div class="card"><div class="num">04</div><h2>Emergence</h2><p>A new form takes shape. The journey completes, but the exploration continues.</p></div></div>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+const canvas = document.getElementById('canvas');
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x000000, 0.04);
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 200);
+camera.position.z = 8;
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+const groups = [];
+const shapes = [
+  { geo: new THREE.SphereGeometry(1.5, 32, 32), color: 0x6366f1 },
+  { geo: new THREE.TorusGeometry(1.2, 0.4, 16, 100), color: 0xec4899 },
+  { geo: new THREE.OctahedronGeometry(1.5, 0), color: 0x06b6d4 },
+  { geo: new THREE.TorusKnotGeometry(1, 0.35, 100, 16), color: 0xf59e0b },
+];
+
+const mat = new THREE.MeshPhysicalMaterial({ roughness: 0.2, metalness: 0.5, clearcoat: 0.8, emissive: 0x111133, emissiveIntensity: 0.3 });
+
+shapes.forEach(s => {
+  const g = new THREE.Group();
+  const mesh = new THREE.Mesh(s.geo, mat.clone());
+  mesh.material.color.set(s.color);
+  mesh.material.emissive.set(s.color);
+  mesh.material.emissiveIntensity = 0.15;
+  g.add(mesh);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(2.5, 0.01, 8, 100), new THREE.MeshBasicMaterial({ color: s.color, transparent: true, opacity: 0.3 }));
+  g.add(ring);
+  for (let i = 0; i < 8; i++) {
+    const sat = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.MeshBasicMaterial({ color: s.color }));
+    const angle = (i / 8) * Math.PI * 2;
+    sat.userData = { angle, radius: 2.5, speed: 0.3 + Math.random() * 0.4, yOff: (Math.random() - 0.5) * 2 };
+    g.add(sat);
+  }
+  g.position.z = -10;
+  scene.add(g);
+  groups.push(g);
+});
+
+scene.add(new THREE.AmbientLight(0x404060, 0.5));
+const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+dirLight.position.set(5, 5, 5);
+scene.add(dirLight);
+const pointLight = new THREE.PointLight(0x6366f1, 3, 20);
+scene.add(pointLight);
+
+const pCount = 800;
+const pPositions = new Float32Array(pCount * 3);
+for (let i = 0; i < pCount * 3; i++) pPositions[i] = (Math.random() - 0.5) * 40;
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+scene.add(new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0x8888ff, size: 0.03, transparent: true, opacity: 0.5 })));
+
+const mouse = new THREE.Vector2();
+window.addEventListener('mousemove', e => { mouse.x = (e.clientX / innerWidth) * 2 - 1; mouse.y = -(e.clientY / innerHeight) * 2 + 1; });
+
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  const scrollY = window.scrollY;
+  const totalSections = 4;
+  const sectionH = innerHeight;
+  const progress = scrollY / (totalSections * sectionH);
+
+  groups.forEach((g, i) => {
+    const targetZ = -i * 15 + progress * 15 * (totalSections - 1);
+    g.position.z += (targetZ - g.position.z) * 0.05;
+    g.rotation.y = t * 0.3 + i * Math.PI * 0.5;
+    g.children.forEach(c => {
+      if (c.userData.angle !== undefined) {
+        c.userData.angle += 0.01 * c.userData.speed;
+        c.position.x = Math.cos(c.userData.angle) * c.userData.radius;
+        c.position.z = Math.sin(c.userData.angle) * c.userData.radius;
+        c.position.y = Math.sin(t + c.userData.angle) * c.userData.yOff;
+      }
+    });
+  });
+  document.getElementById('scroll-hint').style.opacity = scrollY > 50 ? '0' : '';
+  pointLight.position.z = 5 + Math.sin(t) * 3;
+  renderer.render(scene, camera);
+}
+animate();
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
