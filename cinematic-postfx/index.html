@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cinematic Post-Processing</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+  canvas { display: block; }
+  #ui {
+    position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px; z-index: 10;
+  }
+  .btn {
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.5); padding: 7px 18px; border-radius: 50px;
+    cursor: pointer; font-size: 11px; letter-spacing: 0.5px; transition: all 0.3s;
+  }
+  .btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+  .btn.active { background: rgba(239,68,68,0.3); border-color: rgba(239,68,68,0.5); color: #fff; }
+  #info {
+    position: fixed; top: 25px; left: 50%; transform: translateX(-50%);
+    color: rgba(255,255,255,0.2); font-size: 11px; letter-spacing: 2px;
+    text-transform: uppercase; z-index: 3;
+  }
+  #preset-bar {
+    position: fixed; top: 50px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 8px; z-index: 10;
+  }
+</style>
+</head>
+<body>
+<div id="info">Cinematic Post-Processing Showcase</div>
+<div id="preset-bar">
+  <button class="btn active" data-preset="cinematic">Cinematic</button>
+  <button class="btn" data-preset="dreamy">Dreamy</button>
+  <button class="btn" data-preset="noir">Noir</button>
+  <button class="btn" data-preset="vibrant">Vibrant</button>
+</div>
+<div id="ui">
+  <button class="btn active" id="toggle-bloom">Bloom</button>
+  <button class="btn active" id="toggle-dof">DoF</button>
+  <button class="btn active" id="toggle-grain">Grain</button>
+  <button class="btn" id="toggle-vignette">Vignette</button>
+</div>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050510);
+scene.fog = new THREE.FogExp2(0x050510, 0.02);
+
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
+camera.position.set(0, 2, 12);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+document.body.appendChild(renderer.domElement);
+
+// Scene objects
+scene.add(new THREE.AmbientLight(0x404060, 0.5));
+const keyLight = new THREE.DirectionalLight(0xffeedd, 2);
+keyLight.position.set(5, 8, 5);
+keyLight.castShadow = true;
+scene.add(keyLight);
+const rimLight = new THREE.PointLight(0x6366f1, 5, 30);
+rimLight.position.set(-5, 3, -5);
+scene.add(rimLight);
+const fillLight = new THREE.PointLight(0xec4899, 3, 20);
+fillLight.position.set(5, -2, 3);
+scene.add(fillLight);
+
+// Floating geometric shapes
+const shapes = [];
+const shapeGroup = new THREE.Group();
+scene.add(shapeGroup);
+
+const shapeDefs = [
+  { geo: new THREE.IcosahedronGeometry(0.8, 0), pos: [-3, 1, 0], color: 0x6366f1 },
+  { geo: new THREE.TorusKnotGeometry(0.5, 0.15, 64, 8), pos: [0, 2, 0], color: 0xec4899 },
+  { geo: new THREE.OctahedronGeometry(0.7, 0), pos: [3, 0.5, 0], color: 0x06b6d4 },
+  { geo: new THREE.TorusGeometry(0.6, 0.2, 16, 32), pos: [-1.5, -1, 1], color: 0xf59e0b },
+  { geo: new THREE.TetrahedronGeometry(0.6, 0), pos: [1.5, -0.5, -1], color: 0x10b981 },
+  { geo: new THREE.DodecahedronGeometry(0.5, 0), pos: [0, 3, -2], color: 0x8b5cf6 },
+  { geo: new THREE.SphereGeometry(0.4, 32, 32), pos: [2.5, 2.5, 1.5], color: 0xf43f5e },
+  { geo: new THREE.ConeGeometry(0.4, 0.8, 6), pos: [-2.5, 1.5, -1.5], color: 0x14b8a6 },
+];
+
+shapeDefs.forEach(def => {
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: def.color, roughness: 0.15, metalness: 0.7,
+    clearcoat: 0.8, emissive: def.color, emissiveIntensity: 0.15,
+  });
+  const mesh = new THREE.Mesh(def.geo, mat);
+  mesh.position.set(...def.pos);
+  mesh.castShadow = true;
+  shapeGroup.add(mesh);
+  shapes.push({ mesh, baseY: def.pos[1], phase: Math.random() * Math.PI * 2, speed: 0.3 + Math.random() * 0.4 });
+});
+
+// Particle field
+const pCount = 2000;
+const pPos = new Float32Array(pCount * 3);
+for (let i = 0; i < pCount; i++) {
+  pPos[i * 3] = (Math.random() - 0.5) * 40;
+  pPos[i * 3 + 1] = (Math.random() - 0.5) * 30;
+  pPos[i * 3 + 2] = (Math.random() - 0.5) * 30;
+}
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+const particles = new THREE.Points(pGeo, new THREE.PointsMaterial({
+  color: 0x8888cc, size: 0.04, transparent: true, opacity: 0.5,
+}));
+scene.add(particles);
+
+// Ground plane
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(60, 60),
+  new THREE.MeshStandardMaterial({ color: 0x080818, roughness: 0.9, metalness: 0.1 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -3;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// Post-processing
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.8, 0.3, 0.85);
+composer.addPass(bloomPass);
+
+const bokehPass = new BokehPass(scene, camera, {
+  focus: 12.0, aperture: 0.002, maxblur: 0.008,
+  width: innerWidth, height: innerHeight,
+});
+composer.addPass(bokehPass);
+
+// Film grain shader
+const FilmGrainShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uTime: { value: 0 },
+    uIntensity: { value: 0.08 },
+  },
+  vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uTime;
+    uniform float uIntensity;
+    varying vec2 vUv;
+    float random(vec2 co) { return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main() {
+      vec4 color = texture2D(tDiffuse, vUv);
+      float grain = random(vUv + uTime) * uIntensity;
+      color.rgb += grain - uIntensity * 0.5;
+      gl_FragColor = color;
+    }
+  `,
+};
+const grainPass = new ShaderPass(FilmGrainShader);
+composer.addPass(grainPass);
+
+// Vignette shader
+const VignetteShader = {
+  uniforms: { tDiffuse: { value: null }, uDarkness: { value: 1.5 }, uOffset: { value: 1.0 } },
+  vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uDarkness;
+    uniform float uOffset;
+    varying vec2 vUv;
+    void main() {
+      vec4 color = texture2D(tDiffuse, vUv);
+      vec2 uv = (vUv - 0.5) * 2.0;
+      float vig = 1.0 - dot(uv * uOffset, uv * uOffset) * uDarkness;
+      color.rgb *= clamp(vig, 0.0, 1.0);
+      gl_FragColor = color;
+    }
+  `,
+};
+const vignettePass = new ShaderPass(VignetteShader);
+composer.addPass(vignettePass);
+
+// Toggle handlers
+let bloomOn = true, dofOn = true, grainOn = false, vignetteOn = false;
+
+function updatePasses() {
+  bloomPass.enabled = bloomOn;
+  bokehPass.enabled = dofOn;
+  grainPass.uniforms.uIntensity.value = grainOn ? 0.08 : 0;
+  vignettePass.enabled = vignetteOn;
+}
+
+document.getElementById('toggle-bloom').addEventListener('click', function() {
+  bloomOn = !bloomOn; this.classList.toggle('active'); updatePasses();
+});
+document.getElementById('toggle-dof').addEventListener('click', function() {
+  dofOn = !dofOn; this.classList.toggle('active'); updatePasses();
+});
+document.getElementById('toggle-grain').addEventListener('click', function() {
+  grainOn = !grainOn; this.classList.toggle('active'); updatePasses();
+});
+document.getElementById('toggle-vignette').addEventListener('click', function() {
+  vignetteOn = !vignetteOn; this.classList.toggle('active'); updatePasses();
+});
+
+// Presets
+const presets = {
+  cinematic: { bloom: 0.8, dof: true, grain: 0.04, vignette: true, exposure: 1.0 },
+  dreamy: { bloom: 1.5, dof: true, grain: 0, vignette: true, exposure: 1.2 },
+  noir: { bloom: 0.2, dof: false, grain: 0.12, vignette: true, exposure: 0.8 },
+  vibrant: { bloom: 1.0, dof: true, grain: 0, vignette: false, exposure: 1.3 },
+};
+
+document.querySelectorAll('.btn[data-preset]').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.btn[data-preset]').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    const p = presets[b.dataset.preset];
+    bloomPass.strength = p.bloom;
+    bloomOn = p.dof; bokehPass.enabled = p.dof;
+    grainPass.uniforms.uIntensity.value = p.grain;
+    grainOn = p.grain > 0;
+    vignettePass.enabled = p.vignette;
+    vignetteOn = p.vignette;
+    renderer.toneMappingExposure = p.exposure;
+    updatePasses();
+    document.getElementById('toggle-bloom').classList.toggle('active', bloomOn);
+    document.getElementById('toggle-dof').classList.toggle('active', p.dof);
+    document.getElementById('toggle-grain').classList.toggle('active', grainOn);
+    document.getElementById('toggle-vignette').classList.toggle('active', p.vignette);
+  });
+});
+
+const mouse = new THREE.Vector2();
+window.addEventListener('mousemove', e => {
+  mouse.x = (e.clientX / innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / innerHeight) * 2 + 1;
+});
+
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  grainPass.uniforms.uTime.value = t;
+
+  shapes.forEach((s, i) => {
+    s.mesh.rotation.x = t * 0.2 + s.phase;
+    s.mesh.rotation.y = t * 0.3 + s.phase;
+    s.mesh.position.y = s.baseY + Math.sin(t * s.speed + s.phase) * 0.5;
+    s.mesh.position.x += Math.sin(t * 0.2 + i) * 0.003;
+  });
+
+  shapeGroup.rotation.y = Math.sin(t * 0.1) * 0.3 + mouse.x * 0.2;
+  shapeGroup.rotation.x = mouse.y * 0.1;
+
+  particles.rotation.y = t * 0.01;
+  rimLight.position.x = Math.sin(t * 0.4) * 6;
+  rimLight.position.z = Math.cos(t * 0.4) * 6;
+
+  composer.render();
+}
+animate();
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

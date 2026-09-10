@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Holographic Cards</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+  canvas { display: block; }
+  #cards-ui {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 2; pointer-events: none;
+    display: flex; align-items: center; justify-content: center; gap: 30px;
+    flex-wrap: wrap; padding: 60px 40px;
+  }
+  .card {
+    width: 260px; height: 340px; pointer-events: none;
+    position: relative;
+  }
+  .card-label {
+    position: absolute; bottom: -40px; left: 0; width: 100%; text-align: center;
+    color: rgba(255,255,255,0.4); font-size: 12px; letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  #info {
+    position: fixed; top: 25px; left: 50%; transform: translateX(-50%);
+    color: rgba(255,255,255,0.2); font-size: 11px; letter-spacing: 2px;
+    text-transform: uppercase; z-index: 3;
+  }
+</style>
+</head>
+<body>
+<div id="info">Hover cards to interact</div>
+<div id="cards-ui">
+  <div class="card"><div class="card-label">AI Platform</div></div>
+  <div class="card"><div class="card-label">Design System</div></div>
+  <div class="card"><div class="card-label">Data Engine</div></div>
+</div>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(0, 0, 8);
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+document.body.appendChild(renderer.domElement);
+
+// Environment map using PMREMGenerator with a simple scene
+const envScene = new THREE.Scene();
+envScene.background = new THREE.Color(0x111122);
+const envLight1 = new THREE.PointLight(0x6366f1, 50);
+envLight1.position.set(5, 5, 5);
+envScene.add(envLight1);
+const envLight2 = new THREE.PointLight(0xec4899, 50);
+envLight2.position.set(-5, -3, 3);
+envScene.add(envLight2);
+const pmrem = new THREE.PMREMGenerator(renderer);
+const envMap = pmrem.fromScene(envScene).texture;
+scene.environment = envMap;
+
+// Background particles
+const bgCount = 1500;
+const bgPos = new Float32Array(bgCount * 3);
+for (let i = 0; i < bgCount; i++) {
+  bgPos[i * 3] = (Math.random() - 0.5) * 30;
+  bgPos[i * 3 + 1] = (Math.random() - 0.5) * 30;
+  bgPos[i * 3 + 2] = (Math.random() - 0.5) * 20 - 5;
+}
+const bgGeo = new THREE.BufferGeometry();
+bgGeo.setAttribute('position', new THREE.BufferAttribute(bgPos, 3));
+const bgParticles = new THREE.Points(bgGeo, new THREE.PointsMaterial({
+  color: 0x6366f1, size: 0.03, transparent: true, opacity: 0.4,
+}));
+scene.add(bgParticles);
+
+// Create holographic cards
+const cards = [];
+const cardConfigs = [
+  { x: -3.5, color: 0x6366f1, icon: '◆' },
+  { x: 0, color: 0xec4899, icon: '◇' },
+  { x: 3.5, color: 0x06b6d4, icon: '○' },
+];
+
+cardConfigs.forEach((cfg, i) => {
+  const group = new THREE.Group();
+  group.position.x = cfg.x;
+
+  // Card body - rounded rectangle shape
+  const shape = new THREE.Shape();
+  const w = 1.3, h = 1.8, r = 0.1;
+  shape.moveTo(-w + r, -h);
+  shape.lineTo(w - r, -h);
+  shape.quadraticCurveTo(w, -h, w, -h + r);
+  shape.lineTo(w, h - r);
+  shape.quadraticCurveTo(w, h, w - r, h);
+  shape.lineTo(-w + r, h);
+  shape.quadraticCurveTo(-w, h, -w, h - r);
+  shape.lineTo(-w, -h + r);
+  shape.quadraticCurveTo(-w, -h, -w + r, -h);
+
+  const extrudeSettings = { depth: 0.05, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 3 };
+  const cardGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+
+  const cardMat = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff,
+    metalness: 0.1,
+    roughness: 0.05,
+    transmission: 0.95,
+    thickness: 0.5,
+    ior: 1.5,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.05,
+    envMapIntensity: 2.0,
+    transparent: true,
+    opacity: 0.7,
+    side: THREE.DoubleSide,
+  });
+
+  const cardMesh = new THREE.Mesh(cardGeo, cardMat);
+  group.add(cardMesh);
+
+  // Edge glow line
+  const edges = new THREE.EdgesGeometry(cardGeo, 15);
+  const edgeMat = new THREE.LineBasicMaterial({ color: cfg.color, transparent: true, opacity: 0.4 });
+  group.add(new THREE.LineSegments(edges, edgeMat));
+
+  // Floating orbs inside card
+  for (let j = 0; j < 3; j++) {
+    const orb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.08 + Math.random() * 0.06, 16, 16),
+      new THREE.MeshPhysicalMaterial({
+        color: cfg.color, emissive: cfg.color, emissiveIntensity: 2,
+        metalness: 0, roughness: 0, transmission: 0.3,
+      })
+    );
+    orb.position.set((Math.random() - 0.5) * 1.0, (Math.random() - 0.5) * 1.4, 0.06);
+    orb.userData = { baseY: orb.position.y, phase: Math.random() * Math.PI * 2, speed: 0.5 + Math.random() * 0.5 };
+    group.add(orb);
+  }
+
+  group.userData = { targetRotX: 0, targetRotY: 0, currentRotX: 0, currentRotY: 0 };
+  scene.add(group);
+  cards.push(group);
+});
+
+const mouse = new THREE.Vector2();
+const mouse3D = new THREE.Vector3();
+window.addEventListener('mousemove', e => {
+  mouse.x = (e.clientX / innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / innerHeight) * 2 + 1;
+  // Approximate 3D position at z=0
+  mouse3D.set(mouse.x * 4, mouse.y * 3, 0);
+});
+
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  // Update background particles
+  bgParticles.rotation.y = t * 0.02;
+  bgParticles.rotation.x = Math.sin(t * 0.1) * 0.05;
+
+  cards.forEach((card, i) => {
+    // Smooth tilt towards mouse
+    const dx = mouse3D.x - card.position.x;
+    card.userData.targetRotY = dx * 0.3;
+    card.userData.targetRotX = -mouse.y * 0.15;
+    card.userData.currentRotX += (card.userData.targetRotX - card.userData.currentRotX) * 0.05;
+    card.userData.currentRotY += (card.userData.targetRotY - card.userData.currentRotY) * 0.05;
+    card.rotation.x = card.userData.currentRotX;
+    card.rotation.y = card.userData.currentRotY;
+
+    // Animate orbs
+    card.children.forEach(child => {
+      if (child.userData.baseY !== undefined) {
+        child.position.y = child.userData.baseY + Math.sin(t * child.userData.speed + child.userData.phase) * 0.15;
+        child.position.x += Math.sin(t * 0.7 + child.userData.phase) * 0.003;
+      }
+    });
+  });
+
+  renderer.render(scene, camera);
+}
+animate();
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
