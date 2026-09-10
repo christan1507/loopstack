@@ -6,8 +6,15 @@
 <title>Interactive 3D Product Viewer</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+  body { overflow: hidden; background: #0a0a12; font-family: 'Segoe UI', sans-serif; }
   canvas { display: block; }
+  #back {
+    position: fixed; top: 20px; left: 20px; z-index: 10;
+    color: rgba(255,255,255,0.4); text-decoration: none; font-size: 13px;
+    font-family: 'Outfit', sans-serif; letter-spacing: 0.5px;
+    transition: color 0.3s;
+  }
+  #back:hover { color: #fff; }
   #ui {
     position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
     display: flex; gap: 12px; z-index: 10;
@@ -22,7 +29,7 @@
   .btn.active { background: rgba(99,102,241,0.4); border-color: rgba(99,102,241,0.6); }
   #info {
     position: fixed; top: 30px; left: 50%; transform: translateX(-50%);
-    color: rgba(255,255,255,0.5); font-size: 12px; letter-spacing: 1px;
+    color: rgba(255,255,255,0.4); font-size: 12px; letter-spacing: 1px;
     text-transform: uppercase;
   }
   #color-picker {
@@ -36,6 +43,7 @@
 </style>
 </head>
 <body>
+<a id="back" href="..">← Back to Metaskills Design</a>
 <div id="info">Drag to rotate &bull; Scroll to zoom &bull; Right-click to pan</div>
 <div id="color-picker">
   <div class="swatch" style="background:#6366f1" data-color="0x6366f1"></div>
@@ -58,8 +66,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0a0a0f);
-scene.fog = new THREE.Fog(0x0a0a0f, 5, 25);
+scene.background = new THREE.Color(0x0a0a12);
 
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
 camera.position.set(0, 2, 6);
@@ -68,7 +75,7 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
+renderer.toneMappingExposure = 1.5;
 document.body.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -79,37 +86,51 @@ controls.maxDistance = 15;
 controls.autoRotate = true;
 controls.autoRotateSpeed = 1;
 
-// Lighting
-scene.add(new THREE.AmbientLight(0xffffff, 0.3));
-const keyLight = new THREE.DirectionalLight(0xffffff, 2);
+// Brighter, more lights
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const keyLight = new THREE.DirectionalLight(0xffffff, 4);
 keyLight.position.set(5, 5, 5);
 scene.add(keyLight);
-const rimLight = new THREE.DirectionalLight(0x6366f1, 3);
+const rimLight = new THREE.DirectionalLight(0x6366f1, 5);
 rimLight.position.set(-5, 3, -5);
 scene.add(rimLight);
-const fillLight = new THREE.PointLight(0xec4899, 2, 20);
+const fillLight = new THREE.PointLight(0xec4899, 4, 25);
 fillLight.position.set(0, -3, 3);
 scene.add(fillLight);
+const bottomFill = new THREE.PointLight(0x6366f1, 3, 20);
+bottomFill.position.set(0, -5, 0);
+scene.add(bottomFill);
+
+// Create a simple environment map for reflections
+const pmrem = new THREE.PMREMGenerator(renderer);
+const envScene = new THREE.Scene();
+envScene.background = new THREE.Color(0x1a1a2e);
+const envLight = new THREE.PointLight(0xffffff, 100);
+envLight.position.set(0, 0, 0);
+envScene.add(envLight);
+const envMap = pmrem.fromScene(envScene, 0.04).texture;
+scene.environment = envMap;
+pmrem.dispose();
 
 // Ground plane
 const groundGeo = new THREE.CircleGeometry(10, 64);
-const groundMat = new THREE.MeshStandardMaterial({ color: 0x111118, roughness: 0.3, metalness: 0.8 });
+const groundMat = new THREE.MeshStandardMaterial({ color: 0x16162a, roughness: 0.3, metalness: 0.6 });
 const ground = new THREE.Mesh(groundGeo, groundMat);
 ground.rotation.x = -Math.PI / 2;
 ground.position.y = -1.5;
 scene.add(ground);
 
-const grid = new THREE.GridHelper(20, 40, 0x222233, 0x111122);
+const grid = new THREE.GridHelper(20, 40, 0x333355, 0x1a1a30);
 grid.position.y = -1.49;
 scene.add(grid);
 
-// Product mesh
-let mesh;
+// Product mesh — lighter material so it reflects more
 const material = new THREE.MeshPhysicalMaterial({
-  color: 0x6366f1, roughness: 0.15, metalness: 0.9,
-  clearcoat: 1.0, clearcoatRoughness: 0.1, envMapIntensity: 1.5,
+  color: 0x8888ff, roughness: 0.2, metalness: 0.5,
+  clearcoat: 0.8, clearcoatRoughness: 0.15, envMapIntensity: 1.8,
 });
 
+let mesh;
 function createMesh(type) {
   if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); }
   let geo;
@@ -130,7 +151,7 @@ const count = 500;
 const positions = new Float32Array(count * 3);
 for (let i = 0; i < count * 3; i++) positions[i] = (Math.random() - 0.5) * 20;
 particlesGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-const particles = new THREE.Points(particlesGeo, new THREE.PointsMaterial({ color: 0x6366f1, size: 0.02, transparent: true, opacity: 0.6 }));
+const particles = new THREE.Points(particlesGeo, new THREE.PointsMaterial({ color: 0x8888ff, size: 0.04, transparent: true, opacity: 0.7 }));
 scene.add(particles);
 
 // UI handlers
