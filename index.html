@@ -313,8 +313,44 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   const overlays = {
     flower: 'linear-gradient(to top, rgba(6,6,14,0.9) 0%, rgba(6,6,14,0.4) 40%, transparent 100%)',
-    hills: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 20%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.15) 80%, transparent 100%)',
+    hills: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.65) 25%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.12) 85%, transparent 100%)',
   };
+
+  function applyTheme(key) {
+    var isHills = key === 'hills';
+    var textColor = isHills ? '#1a1510' : '';
+    var textShadow = isHills ? '0 2px 12px rgba(255,255,255,0.35)' : 'none';
+    var subColor = isHills ? 'rgba(50,45,35,0.7)' : '';
+    var subShadow = isHills ? '0 1px 8px rgba(255,255,255,0.3)' : 'none';
+    var eyebrowColor = isHills ? 'rgba(40,35,25,0.7)' : '';
+    var eyebrowShadow = isHills ? '0 1px 8px rgba(255,255,255,0.3)' : 'none';
+    var navColor = isHills ? 'rgba(45,40,30,0.6)' : '';
+    var navShadow = isHills ? '0 1px 6px rgba(255,255,255,0.2)' : 'none';
+    var linkColor = isHills ? 'rgba(55,50,40,0.7)' : '';
+    var linkShadow = isHills ? '0 1px 4px rgba(255,255,255,0.2)' : 'none';
+    var copyColor = isHills ? 'rgba(55,50,40,0.45)' : '';
+    var copyShadow = isHills ? '0 1px 4px rgba(255,255,255,0.15)' : 'none';
+
+    var title = document.querySelector('.hero-title');
+    if (title) { title.style.color = textColor; title.style.textShadow = textShadow; }
+    var subtitle = document.querySelector('.hero-subtitle');
+    if (subtitle) { subtitle.style.color = subColor; subtitle.style.textShadow = subShadow; }
+    var eyebrow = document.querySelector('.hero-eyebrow');
+    if (eyebrow) { eyebrow.style.color = eyebrowColor; eyebrow.style.textShadow = eyebrowShadow; }
+    var navTitle = document.querySelector('.nav-title');
+    if (navTitle) { navTitle.style.color = navColor; navTitle.style.textShadow = navShadow; }
+    var navQuote = document.querySelector('.nav-quote');
+    if (navQuote) { navQuote.style.color = navColor; navQuote.style.textShadow = navShadow; }
+    var divider = document.querySelector('.divider');
+    if (divider) divider.style.backgroundColor = isHills ? 'rgba(60,55,45,0.2)' : '';
+    var links = document.querySelectorAll('.proto-link');
+    links.forEach(function(l) { l.style.color = linkColor; l.style.textShadow = linkShadow; });
+    var icons = document.querySelectorAll('.social-icon');
+    icons.forEach(function(ic) { ic.style.color = navColor; ic.style.textShadow = navShadow; });
+    var copy = document.querySelector('.copyright');
+    if (copy) { copy.style.color = copyColor; copy.style.textShadow = copyShadow; }
+  }
+
   thumbs.forEach(thumb => {
     thumb.addEventListener('click', () => {
       thumbs.forEach(t => t.classList.remove('active'));
@@ -322,10 +358,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const key = thumb.dataset.video;
       video.src = videos[key];
       overlay.style.background = overlays[key];
+      applyTheme(key);
       video.load();
       video.play();
     });
   });
+
+  applyTheme('flower');
 </script>
 
 </body>
