@@ -305,9 +305,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Video picker
   const video = document.getElementById('bg-video');
   const thumbs = document.querySelectorAll('.video-thumb');
+  const overlay = document.querySelector('.overlay-gradient');
   const videos = {
     flower: 'https://api.getlayers.ai/storage/v1/object/public/public/assets/loopstack-f8c64439bf/flower.mp4',
     hills: 'https://christan1507.github.io/metaskillsdesign/material-hills.mp4',
+  };
+  const overlays = {
+    flower: 'linear-gradient(to top, rgba(6,6,14,0.9) 0%, rgba(6,6,14,0.4) 40%, transparent 100%)',
+    hills: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 40%, rgba(0,0,0,0.2) 100%)',
   };
   thumbs.forEach(thumb => {
     thumb.addEventListener('click', () => {
@@ -315,6 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
       thumb.classList.add('active');
       const key = thumb.dataset.video;
       video.src = videos[key];
+      overlay.style.background = overlays[key];
       video.load();
       video.play();
     });
