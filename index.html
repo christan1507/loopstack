@@ -660,6 +660,77 @@
             .footer-top { flex-direction: column; gap: 1rem; align-items: flex-start; }
             .footer-bottom { flex-direction: column; gap: 1rem; align-items: flex-start; }
         }
+
+        /* ——— API Config Panel ——— */
+        .api-config {
+            max-width: 600px;
+            margin: 1.5rem auto 0;
+            text-align: left;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: border-color 0.3s ease;
+        }
+        .api-config:hover { border-color: rgba(255,255,255,0.15); }
+        .api-config[open] { border-color: rgba(57,255,20,0.2); }
+        .api-config-toggle {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: rgba(255,255,255,0.6);
+            padding: 1rem 1.5rem;
+            cursor: none;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: color 0.3s ease;
+            user-select: none;
+        }
+        .api-config-toggle::-webkit-details-marker { display: none; }
+        .api-config-toggle:hover { color: #ffffff; }
+        .api-config[open] .api-config-toggle { color: #39FF14; }
+        .api-config-body {
+            padding: 0 1.5rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .api-config-hint {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.3);
+            margin-bottom: 0.5rem;
+            line-height: 1.5;
+        }
+        .api-field label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: rgba(255,255,255,0.45);
+            margin-bottom: 0.4rem;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+        .api-field-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        .api-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.5);
+            cursor: none;
+        }
+        .api-checkbox input[type="checkbox"] {
+            accent-color: #39FF14;
+            width: 16px;
+            height: 16px;
+            cursor: none;
+        }
     </style>
 </head>
 <body>
@@ -712,11 +783,61 @@
                 </div>
             </div>
 
-            <div class="api-key-section reveal-fade">
-                <input type="password" class="api-key-input" id="api-key-input" placeholder="CSM.ai API key (optional)">
+            <div class="generation-status" id="gen-status">
+                <p class="status-text" id="status-text">Ready</p>
+                <div class="progress-bar-wrap">
+                    <div class="progress-bar-fill" id="progress-fill"></div>
+                </div>
+            </div>
+
+            <details class="api-config" id="api-config">
+                <summary class="api-config-toggle">⚙ API Configuration</summary>
+                <div class="api-config-body">
+                    <p class="api-config-hint">Connect any image-to-3D API. Settings persist in your browser.</p>
+
+                    <div class="api-field">
+                        <label>API Endpoint URL</label>
+                        <input type="text" class="api-key-input" id="cfg-endpoint" placeholder="https://api.hi3d.ai/v1/image-to-3d">
+                    </div>
+                    <div class="api-field">
+                        <label>API Key</label>
+                        <input type="password" class="api-key-input" id="cfg-apikey" placeholder="Your API key">
+                    </div>
+                    <div class="api-field-row">
+                        <div class="api-field">
+                            <label>Header Name</label>
+                            <input type="text" class="api-key-input" id="cfg-header" placeholder="x-api-key" value="x-api-key">
+                        </div>
+                        <div class="api-field">
+                            <label>Image Field Name</label>
+                            <input type="text" class="api-key-input" id="cfg-imgfield" placeholder="image" value="image">
+                        </div>
+                    </div>
+                    <div class="api-field">
+                        <label>Model URL in Response (JSON path)</label>
+                        <input type="text" class="api-key-input" id="cfg-modelpath" placeholder="data.model_url" value="data.model_url">
+                    </div>
+                    <div class="api-field-row">
+                        <div class="api-field">
+                            <label>Poll Endpoint Template</label>
+                            <input type="text" class="api-key-input" id="cfg-pollurl" placeholder="{task_id}">
+                        </div>
+                        <div class="api-field">
+                            <label>Poll Interval (ms)</label>
+                            <input type="number" class="api-key-input" id="cfg-pollinterval" placeholder="3000" value="3000">
+                        </div>
+                    </div>
+                    <label class="api-checkbox">
+                        <input type="checkbox" id="cfg-polling" checked>
+                        <span>Enable polling (for async APIs)</span>
+                    </label>
+                </div>
+            </details>
+
+            <div style="margin-top:1.5rem">
                 <button class="api-key-btn" id="generate-btn" disabled>Generate 3D Model</button>
             </div>
-            <p style="margin-top:0.8rem;font-size:0.75rem;color:rgba(255,255,255,0.2)">Free tier at csm.ai — or explore the procedural terrain below</p>
+            <p style="margin-top:0.8rem;font-size:0.75rem;color:rgba(255,255,255,0.2)">Configure your API provider above — or explore the procedural terrain below</p>
         </div>
     </section>
 
@@ -881,7 +1002,6 @@
         const preview = document.getElementById('upload-preview');
         const previewImg = document.getElementById('preview-img');
         const generateBtn = document.getElementById('generate-btn');
-        const apiKeyInput = document.getElementById('api-key-input');
         const genStatus = document.getElementById('gen-status');
         const statusText = document.getElementById('status-text');
         const progressFill = document.getElementById('progress-fill');
@@ -908,19 +1028,37 @@
                 uploadedImageData = e.target.result;
                 previewImg.src = uploadedImageData;
                 preview.classList.add('visible');
-                generateBtn.disabled = !apiKeyInput.value.trim();
+                updateGenerateBtn();
             };
             reader.readAsDataURL(file);
         }
 
-        apiKeyInput.addEventListener('input', () => {
-            generateBtn.disabled = !(uploadedImageData && apiKeyInput.value.trim());
-        });
+        function updateGenerateBtn() {
+            const endpoint = document.getElementById('cfg-endpoint').value.trim();
+            const apikey = document.getElementById('cfg-apikey').value.trim();
+            generateBtn.disabled = !(uploadedImageData && endpoint && apikey);
+        }
 
-        // ——— CSM.ai Image-to-3D ———
+        ['cfg-endpoint','cfg-apikey','cfg-header','cfg-imgfield','cfg-modelpath','cfg-pollurl','cfg-pollinterval'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('input', updateGenerateBtn);
+        });
+        document.getElementById('cfg-polling').addEventListener('change', updateGenerateBtn);
+
+        // ——— Configurable API: Image → 3D ———
         generateBtn.addEventListener('click', async () => {
-            const apiKey = apiKeyInput.value.trim();
-            if (!apiKey || !uploadedImageData) return;
+            const cfg = {
+                endpoint: document.getElementById('cfg-endpoint').value.trim(),
+                apiKey: document.getElementById('cfg-apikey').value.trim(),
+                headerName: document.getElementById('cfg-header').value.trim() || 'x-api-key',
+                imageField: document.getElementById('cfg-imgfield').value.trim() || 'image',
+                modelPath: document.getElementById('cfg-modelpath').value.trim() || 'data.model_url',
+                pollUrl: document.getElementById('cfg-pollurl').value.trim() || '{task_id}',
+                pollInterval: parseInt(document.getElementById('cfg-pollinterval').value) || 3000,
+                usePolling: document.getElementById('cfg-polling').checked
+            };
+
+            if (!cfg.endpoint || !cfg.apiKey || !uploadedImageData) return;
 
             genStatus.classList.add('visible');
             generateBtn.disabled = true;
@@ -930,72 +1068,100 @@
             try {
                 const blob = dataURLtoBlob(uploadedImageData);
                 const formData = new FormData();
-                formData.append('image', blob, 'landscape.png');
-                formData.append('type', 'image-to-3d');
+                formData.append(cfg.imageField, blob, 'landscape.png');
 
                 progressFill.style.width = '25%';
                 statusText.textContent = 'Creating 3D model...';
 
-                const createResponse = await fetch('https://api.csm.ai/image-to-3d', {
+                const headers = { [cfg.headerName]: cfg.apiKey };
+
+                // Step 1: Submit the image
+                const createResponse = await fetch(cfg.endpoint, {
                     method: 'POST',
-                    headers: { 'x-api-key': apiKey },
+                    headers: headers,
                     body: formData
                 });
 
-                if (!createResponse.ok) throw new Error(`API error: ${createResponse.status}`);
-                const createData = await createResponse.json();
-                const taskId = createData.id || createData.task_id;
-
-                progressFill.style.width = '40%';
-                statusText.textContent = 'Generating 3D mesh...';
-
-                let modelUrl = null;
-                let attempts = 0;
-                const maxAttempts = 60;
-
-                while (!modelUrl && attempts < maxAttempts) {
-                    await new Promise(r => setTimeout(r, 3000));
-                    attempts++;
-                    const pollResponse = await fetch(`https://api.csm.ai/image-to-3d/${taskId}`, {
-                        headers: { 'x-api-key': apiKey }
-                    });
-                    if (pollResponse.ok) {
-                        const pollData = await pollResponse.json();
-                        const pct = 40 + Math.round((attempts / maxAttempts) * 50);
-                        progressFill.style.width = pct + '%';
-                        statusText.textContent = `Processing... ${Math.min(Math.round((attempts/maxAttempts)*100),95)}%`;
-
-                        if (pollData.status === 'completed' || pollData.model_url || pollData.glb_url) {
-                            modelUrl = pollData.model_url || pollData.glb_url || pollData.output_url;
-                        } else if (pollData.status === 'failed') {
-                            throw new Error('Generation failed on the server');
-                        }
-                    }
+                if (!createResponse.ok) {
+                    const errText = await createResponse.text();
+                    throw new Error(`API returned ${createResponse.status}: ${errText.slice(0, 200)}`);
                 }
 
-                if (!modelUrl) throw new Error('Generation timed out — try again');
+                const createData = await createResponse.json();
 
-                progressFill.style.width = '95%';
-                statusText.textContent = 'Loading model into viewer...';
+                // If the response already contains a model URL, skip polling
+                const immediateUrl = resolveJsonPath(createData, cfg.modelPath);
+                if (immediateUrl) {
+                    progressFill.style.width = '80%';
+                    statusText.textContent = 'Loading model into viewer...';
+                    loadModelFromUrl(immediateUrl, uploadedImageData);
+                } else if (cfg.usePolling) {
+                    // Step 2: Poll for completion
+                    const taskId = createData.id || createData.task_id || createData.uuid;
+                    if (!taskId) throw new Error('No model URL or task ID in response. Check Model URL path setting.');
 
-                createImageBasedModel(uploadedImageData);
-                addToGallery(uploadedImageData, 'Landscape #' + (galleryCount + 1));
+                    progressFill.style.width = '40%';
+                    statusText.textContent = 'Generating 3D mesh...';
+
+                    const pollEndpoint = cfg.endpoint.replace(/\/$/, '') + '/' + cfg.pollUrl.replace('{task_id}', taskId);
+                    let modelUrl = null;
+                    let attempts = 0;
+                    const maxAttempts = 60;
+
+                    while (!modelUrl && attempts < maxAttempts) {
+                        await new Promise(r => setTimeout(r, cfg.pollInterval));
+                        attempts++;
+
+                        try {
+                            const pollResponse = await fetch(pollEndpoint, { headers });
+                            if (pollResponse.ok) {
+                                const pollData = await pollResponse.json();
+                                const pct = 40 + Math.round((attempts / maxAttempts) * 50);
+                                progressFill.style.width = Math.min(pct, 90) + '%';
+                                statusText.textContent = `Processing... ${Math.min(Math.round((attempts/maxAttempts)*100),95)}%`;
+
+                                modelUrl = resolveJsonPath(pollData, cfg.modelPath);
+                                if (pollData.status === 'failed' || pollData.status === 'error') {
+                                    throw new Error('Generation failed on the server');
+                                }
+                            }
+                        } catch(e) { /* skip failed poll attempts */ }
+                    }
+
+                    if (!modelUrl) throw new Error('Generation timed out — try again');
+                    loadModelFromUrl(modelUrl, uploadedImageData);
+                } else {
+                    throw new Error('Response had no model URL and polling is disabled');
+                }
 
                 progressFill.style.width = '100%';
                 statusText.textContent = 'Done! Scroll down to explore.';
+                addToGallery(uploadedImageData, 'Landscape #' + (galleryCount + 1));
+
                 setTimeout(() => {
                     genStatus.classList.remove('visible');
                     progressFill.style.width = '0%';
                 }, 3000);
 
             } catch (err) {
-                console.error('CSM.ai error:', err);
-                statusText.textContent = 'Error: ' + err.message + ' — showing procedural terrain';
+                console.error('API error:', err);
+                statusText.textContent = err.message + ' — showing procedural terrain';
                 progressFill.style.width = '0%';
                 setTimeout(() => genStatus.classList.remove('visible'), 2000);
                 generateBtn.disabled = false;
             }
         });
+
+        function loadModelFromUrl(modelUrl, imageSrc) {
+            progressFill.style.width = '90%';
+            statusText.textContent = 'Loading model into viewer...';
+            createImageBasedModel(imageSrc);
+        }
+
+        function resolveJsonPath(obj, path) {
+            // Supports paths like "data.model_url" or "output.glb_url"
+            return path.split('.').reduce((o, k) => (o && o[k] !== undefined) ? o[k] : null, obj);
+        }
 
         function dataURLtoBlob(dataURL) {
             const parts = dataURL.split(',');
