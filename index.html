@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metaskills Design — Image to 3D</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+        @import url('https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            background-color: #0a0a1f;
+            color: #ffffff;
+            font-family: 'Outfit', sans-serif;
+            overflow-x: hidden;
+            cursor: none;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0a1f; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+        /* ——— Custom Cursor ——— */
+        .cursor-ring-outline {
+            position: fixed;
+            top: 0; left: 0;
+            width: 48px; height: 48px;
+            border: 1.5px solid rgba(255, 255, 255, 0.45);
+            border-radius: 50%;
+            z-index: 99998;
+            pointer-events: none;
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 0;
+            will-change: transform, opacity;
+            transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease;
+        }
+        .cursor-ring-outline.active { opacity: 1; }
+        .cursor-ring-outline.expanded {
+            border-color: rgba(255, 255, 255, 0.15);
+            border-width: 2px;
+        }
+
+        .glass-cursor-card {
+            position: fixed;
+            top: 0; left: 0;
+            z-index: 99999;
+            pointer-events: none;
+            padding: 0.75rem 1.5rem;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 9999px;
+            box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 0;
+            will-change: transform, opacity;
+            transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                        background 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                        border-color 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                        box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .glass-cursor-card.active { opacity: 1; }
+        .cursor-card-text {
+            font-family: 'General Sans', -apple-system, sans-serif;
+            font-size: 0.85rem;
+            font-weight: 500;
+            letter-spacing: 0.06em;
+            color: #39FF14;
+            text-transform: uppercase;
+            white-space: nowrap;
+            text-shadow: 0 0 8px rgba(57, 255, 20, 0.45);
+        }
+        .cursor-card-text .text-white {
+            color: #ffffff;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+        }
+
+        /* ——— Navigation ——— */
+        .nav-bar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.5rem 3rem;
+            transition: background 0.4s ease;
+        }
+        .nav-bar.scrolled {
+            background: rgba(10, 10, 31, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .nav-logo {
+            font-family: 'General Sans', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #ffffff;
+            text-decoration: none;
+            letter-spacing: -0.02em;
+        }
+        .nav-links { display: flex; gap: 2.5rem; }
+        .nav-links a {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 400;
+            color: #ffffff;
+            text-decoration: none;
+            letter-spacing: 0.02em;
+            transition: opacity 0.3s ease;
+        }
+        .nav-links a:hover { opacity: 0.6; }
+        .nav-cta {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #ffffff;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 0.7rem 1.6rem;
+            border-radius: 9999px;
+            cursor: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            transition: all 0.3s ease;
+        }
+        .nav-cta:hover {
+            background: #ffffff;
+            color: #0a0a1f;
+            border-color: #ffffff;
+        }
+
+        .blinking-dot {
+            width: 10px; height: 10px;
+            background-color: #39FF14;
+            border-radius: 50%;
+            position: relative;
+            display: inline-block;
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+        .blinking-dot::after {
+            content: '';
+            position: absolute;
+            top: -5px; left: -5px; right: -5px; bottom: -5px;
+            background-color: rgba(57, 255, 20, 0.45);
+            border-radius: 50%;
+            animation: wave-expand 2s infinite ease-in-out;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.5; transform: scale(0.85); box-shadow: 0 0 4px rgba(57,255,20,0.3); }
+            50% { opacity: 1; transform: scale(1.1); box-shadow: 0 0 12px rgba(57,255,20,0.9); }
+        }
+        @keyframes wave-expand {
+            0% { transform: scale(0.6); opacity: 0.9; }
+            100% { transform: scale(2.3); opacity: 0; }
+        }
+
+        /* ——— Upload Section ——— */
+        .section-upload {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 6rem 2rem 4rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .upload-bg-gradient {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 50% 30%, rgba(57,255,20,0.04) 0%, transparent 60%),
+                        radial-gradient(ellipse at 20% 80%, rgba(100,50,255,0.03) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        .upload-container {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            max-width: 700px;
+            width: 100%;
+        }
+        .upload-label {
+            font-family: 'General Sans', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 500;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: #39FF14;
+            margin-bottom: 1.5rem;
+            display: block;
+        }
+        .upload-headline {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: clamp(2.5rem, 6vw, 5rem);
+            font-weight: 400;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+            margin-bottom: 1rem;
+        }
+        .upload-headline .accent {
+            color: #39FF14;
+            font-style: italic;
+        }
+        .upload-sub {
+            font-size: 1.1rem;
+            font-weight: 300;
+            color: rgba(255,255,255,0.45);
+            margin-bottom: 3rem;
+            line-height: 1.6;
+        }
+
+        .drop-zone {
+            border: 2px dashed rgba(255,255,255,0.15);
+            border-radius: 24px;
+            padding: 4rem 2rem;
+            cursor: none;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+            background: rgba(255,255,255,0.02);
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: rgba(57,255,20,0.4);
+            background: rgba(57,255,20,0.03);
+        }
+        .drop-zone.dragover { transform: scale(1.02); }
+        .drop-zone-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.6; }
+        .drop-zone-text {
+            font-size: 1.1rem;
+            font-weight: 300;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 0.5rem;
+        }
+        .drop-zone-hint { font-size: 0.85rem; color: rgba(255,255,255,0.25); }
+        .drop-zone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: none;
+        }
+
+        .api-key-section {
+            margin-top: 2rem;
+            display: flex;
+            gap: 0.8rem;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .api-key-input {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.9rem;
+            padding: 0.8rem 1.2rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.04);
+            color: #ffffff;
+            outline: none;
+            width: 280px;
+            transition: border-color 0.3s ease;
+            cursor: none;
+        }
+        .api-key-input::placeholder { color: rgba(255,255,255,0.2); }
+        .api-key-input:focus { border-color: rgba(57,255,20,0.4); }
+        .api-key-btn {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 500;
+            padding: 0.8rem 1.5rem;
+            border-radius: 12px;
+            border: none;
+            background: #39FF14;
+            color: #0a0a1f;
+            cursor: none;
+            transition: all 0.3s ease;
+        }
+        .api-key-btn:hover {
+            box-shadow: 0 0 25px rgba(57,255,20,0.3);
+            transform: translateY(-1px);
+        }
+        .api-key-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .upload-preview {
+            margin-top: 2rem;
+            position: relative;
+            display: none;
+        }
+        .upload-preview.visible { display: block; }
+        .upload-preview img {
+            max-width: 300px;
+            max-height: 200px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .generation-status {
+            margin-top: 2rem;
+            display: none;
+        }
+        .generation-status.visible { display: block; }
+        .status-text {
+            font-size: 0.95rem;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 1rem;
+        }
+        .progress-bar-wrap {
+            width: 100%;
+            max-width: 400px;
+            height: 3px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 0 auto;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #39FF14, #00ff88);
+            border-radius: 2px;
+            transition: width 0.5s ease;
+        }
+
+        /* ——— 3D Viewer ——— */
+        .section-viewer {
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+        #three-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .viewer-overlay {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+        .viewer-hint {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.35);
+            letter-spacing: 0.05em;
+            text-align: center;
+        }
+        .viewer-model-label {
+            position: absolute;
+            top: 6rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            font-family: 'General Sans', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 500;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: #39FF14;
+            opacity: 0;
+            transition: opacity 0.6s ease;
+        }
+        .viewer-model-label.visible { opacity: 0.9; }
+
+        /* ——— Gallery ——— */
+        .section-gallery {
+            padding: 8rem 3rem;
+            background: #0a0a1f;
+        }
+        .gallery-header {
+            text-align: center;
+            margin-bottom: 5rem;
+        }
+        .gallery-label {
+            font-family: 'General Sans', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 500;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: #39FF14;
+            margin-bottom: 1.5rem;
+            display: block;
+        }
+        .gallery-title {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 400;
+            line-height: 1.15;
+            letter-spacing: -0.015em;
+        }
+        .gallery-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        .gallery-card {
+            position: relative;
+            border-radius: 16px;
+            overflow: hidden;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            aspect-ratio: 4/3;
+            cursor: none;
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .gallery-card:hover {
+            border-color: rgba(57,255,20,0.2);
+            transform: translateY(-6px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        }
+        .gallery-card-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.8rem;
+        }
+        .gallery-card-placeholder svg { opacity: 0.2; }
+        .gallery-card-placeholder span {
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.2);
+        }
+        .gallery-card-info {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            padding: 1.5rem;
+            background: linear-gradient(to top, rgba(10,10,31,0.95), transparent);
+        }
+        .gallery-card-title {
+            font-family: 'General Sans', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            margin-bottom: 0.3rem;
+        }
+        .gallery-card-desc {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.4);
+            font-weight: 300;
+        }
+
+        /* ——— About ——— */
+        .section-about {
+            min-height: 60vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8rem 3rem;
+            background: #0a0a1f;
+        }
+        .about-inner { max-width: 800px; text-align: center; }
+        .about-text {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: clamp(1.5rem, 3vw, 2.2rem);
+            font-weight: 400;
+            font-style: italic;
+            line-height: 1.5;
+            color: rgba(255,255,255,0.7);
+            letter-spacing: -0.01em;
+        }
+        .about-text strong {
+            color: #ffffff;
+            font-style: normal;
+        }
+
+        /* ——— CTA ——— */
+        .section-cta-final {
+            padding: 10rem 2rem;
+            text-align: center;
+            background: #0a0a1f;
+            position: relative;
+        }
+        .cta-final-glow {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(57,255,20,0.06) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .cta-final-label {
+            font-family: 'General Sans', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 500;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: #39FF14;
+            margin-bottom: 1.5rem;
+            display: block;
+            position: relative;
+        }
+        .cta-final-heading {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: clamp(3rem, 8vw, 7rem);
+            font-weight: 400;
+            line-height: 1.05;
+            letter-spacing: -0.02em;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+        .cta-final-heading .accent {
+            color: #39FF14;
+            font-style: italic;
+        }
+        .cta-final-sub {
+            font-size: 1.15rem;
+            font-weight: 300;
+            color: rgba(255,255,255,0.45);
+            margin-bottom: 3rem;
+            position: relative;
+        }
+        .cta-final-btn {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #ffffff;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 1.2rem 2.8rem;
+            border-radius: 9999px;
+            cursor: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.8rem;
+            transition: all 0.3s ease;
+            position: relative;
+            text-decoration: none;
+        }
+        .cta-final-btn:hover {
+            background: #39FF14;
+            color: #0a0a1f;
+            border-color: #39FF14;
+            box-shadow: 0 0 40px rgba(57,255,20,0.2);
+        }
+
+        /* ——— Footer ——— */
+        .site-footer {
+            padding: 4rem 3rem;
+            background: #0a0a1f;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        .footer-inner { max-width: 1200px; margin: 0 auto; }
+        .footer-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .footer-brand {
+            font-family: 'General Sans', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+        .footer-socials { display: flex; gap: 1.25rem; }
+        .social-icon {
+            color: rgba(255,255,255,0.4);
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+        }
+        .social-icon:hover {
+            color: #ffffff;
+            transform: translateY(-2px);
+        }
+        .footer-divider {
+            border: none;
+            height: 1px;
+            background: rgba(255,255,255,0.1);
+            margin-bottom: 2rem;
+        }
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .footer-copy {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.3);
+        }
+        .footer-nav { display: flex; gap: 2rem; }
+        .footer-nav a {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.3);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        .footer-nav a:hover { color: #ffffff; }
+
+        /* ——— Reveal animations ——— */
+        .reveal-mask {
+            display: inline-block;
+            overflow: hidden;
+            vertical-align: bottom;
+            padding-bottom: 0.08em;
+            margin-bottom: -0.08em;
+        }
+        .reveal-inner {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(105%);
+            filter: blur(20px);
+            transition: all 1.2s cubic-bezier(0.05, 0.9, 0.1, 1);
+        }
+        .reveal-inner.visible {
+            opacity: 1;
+            transform: translateY(0);
+            filter: blur(0);
+        }
+        .reveal-fade {
+            opacity: 0;
+            transform: translateY(30px);
+            filter: blur(8px);
+            transition: all 1s cubic-bezier(0.05, 0.9, 0.1, 1) 0.3s;
+        }
+        .reveal-fade.visible {
+            opacity: 1;
+            transform: translateY(0);
+            filter: blur(0);
+        }
+        .reveal-scale {
+            opacity: 0;
+            transform: scale(0.9);
+            filter: blur(10px);
+            transition: all 1s cubic-bezier(0.05, 0.9, 0.1, 1);
+        }
+        .reveal-scale.visible {
+            opacity: 1;
+            transform: scale(1);
+            filter: blur(0);
+        }
+
+        @media (max-width: 768px) {
+            .nav-bar { padding: 1rem 1.5rem; }
+            .nav-links { display: none; }
+            .section-gallery { padding: 4rem 1.5rem; }
+            .gallery-grid { grid-template-columns: 1fr; }
+            .footer-top { flex-direction: column; gap: 1rem; align-items: flex-start; }
+            .footer-bottom { flex-direction: column; gap: 1rem; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="cursor-ring" class="cursor-ring-outline"></div>
+    <div id="glass-card" class="glass-cursor-card">
+        <span class="cursor-card-text"><span class="text-white">Say</span> Hello!</span>
+    </div>
+
+    <nav class="nav-bar" id="nav-bar">
+        <a href="#" class="nav-logo">Metaskills</a>
+        <div class="nav-links">
+            <a href="#upload">Upload</a>
+            <a href="#gallery">Gallery</a>
+            <a href="#about">About</a>
+        </div>
+        <button class="nav-cta" onclick="document.getElementById('upload').scrollIntoView({behavior:'smooth'})">
+            <span>Start Creating</span>
+            <span class="blinking-dot"></span>
+        </button>
+    </nav>
+
+    <section class="section-upload" id="upload">
+        <div class="upload-bg-gradient"></div>
+        <div class="upload-container">
+            <span class="upload-label reveal-fade">Image to 3D</span>
+            <h1 class="upload-headline">
+                <span class="reveal-mask"><span class="reveal-inner">Transform</span></span>
+                <span class="reveal-mask"><span class="reveal-inner" style="color:#39FF14;font-style:italic">landscapes</span></span>
+                <span class="reveal-mask"><span class="reveal-inner">into</span></span>
+                <span class="reveal-mask"><span class="reveal-inner">3D</span></span>
+            </h1>
+            <p class="upload-sub reveal-fade">Upload any landscape image and watch it become an interactive 3D model you can explore</p>
+
+            <div class="drop-zone reveal-scale" id="drop-zone">
+                <div class="drop-zone-icon">&#x1F3A8;</div>
+                <p class="drop-zone-text">Drop your landscape image here</p>
+                <p class="drop-zone-hint">or click to browse — JPG, PNG, WebP</p>
+                <input type="file" id="file-input" accept="image/*">
+            </div>
+
+            <div class="upload-preview" id="upload-preview">
+                <img id="preview-img" src="" alt="Preview">
+            </div>
+
+            <div class="generation-status" id="gen-status">
+                <p class="status-text" id="status-text">Analyzing image...</p>
+                <div class="progress-bar-wrap">
+                    <div class="progress-bar-fill" id="progress-fill"></div>
+                </div>
+            </div>
+
+            <div class="api-key-section reveal-fade">
+                <input type="password" class="api-key-input" id="api-key-input" placeholder="CSM.ai API key (optional)">
+                <button class="api-key-btn" id="generate-btn" disabled>Generate 3D Model</button>
+            </div>
+            <p style="margin-top:0.8rem;font-size:0.75rem;color:rgba(255,255,255,0.2)">Free tier at csm.ai — or explore the procedural terrain below</p>
+        </div>
+    </section>
+
+    <section class="section-viewer" id="viewer">
+        <canvas id="three-canvas"></canvas>
+        <div class="viewer-model-label" id="viewer-label">Interactive 3D Viewer</div>
+        <div class="viewer-overlay">
+            <span class="viewer-hint">Drag to rotate &nbsp;&middot;&nbsp; Scroll to zoom &nbsp;&middot;&nbsp; Right-drag to pan</span>
+        </div>
+    </section>
+
+    <section class="section-gallery" id="gallery">
+        <div class="gallery-header">
+            <span class="gallery-label reveal-fade">Collection</span>
+            <h2 class="gallery-title">
+                <span class="reveal-mask"><span class="reveal-inner">Generated</span></span>
+                <span class="reveal-mask"><span class="reveal-inner" style="color:#39FF14;font-style:italic">worlds</span></span>
+            </h2>
+        </div>
+        <div class="gallery-grid" id="gallery-grid">
+            <div class="gallery-card reveal-scale">
+                <div class="gallery-card-placeholder">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                    <span>Upload an image to begin</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-about" id="about">
+        <div class="about-inner">
+            <p class="about-text reveal-fade">
+                We transform ordinary images into <strong>extraordinary 3D experiences</strong>.
+                Using cutting-edge AI and real-time WebGL rendering, every landscape becomes an
+                <strong>interactive world</strong> you can explore from every angle.
+            </p>
+        </div>
+    </section>
+
+    <section class="section-cta-final" id="contact">
+        <div class="cta-final-glow"></div>
+        <span class="cta-final-label reveal-fade">Get Started</span>
+        <h2 class="cta-final-heading">
+            <span class="reveal-mask"><span class="reveal-inner">Ready to</span></span>
+            <span class="reveal-mask"><span class="reveal-inner" style="color:#39FF14;font-style:italic">create?</span></span>
+        </h2>
+        <p class="cta-final-sub reveal-fade">Bring your landscapes into the third dimension</p>
+        <button class="cta-final-btn reveal-fade" onclick="document.getElementById('upload').scrollIntoView({behavior:'smooth'})">
+            <span>Start Creating</span>
+            <span class="blinking-dot"></span>
+        </button>
+    </section>
+
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-top">
+                <h2 class="footer-brand">Metaskills Design</h2>
+                <div class="footer-socials">
+                    <a href="#" aria-label="LinkedIn" class="social-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>
+                    </a>
+                    <a href="#" aria-label="X" class="social-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l11.733 16h4.267l-11.733 -16z"></path><path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772"></path></svg>
+                    </a>
+                    <a href="#" aria-label="Instagram" class="social-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></rect><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+                    </a>
+                </div>
+            </div>
+            <hr class="footer-divider">
+            <div class="footer-bottom">
+                <p class="footer-copy">&copy; 2026 Metaskills Design</p>
+                <nav class="footer-nav">
+                    <a href="#">Privacy</a>
+                    <a href="#">Terms</a>
+                </nav>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        // ——— Custom Cursor ———
+        const glassCard = document.getElementById('glass-card');
+        const cursorRing = document.getElementById('cursor-ring');
+
+        if (glassCard && cursorRing) {
+            let mouseX = window.innerWidth / 2;
+            let mouseY = window.innerHeight / 2;
+            let cardX = mouseX, cardY = mouseY;
+            let ringX = mouseX, ringY = mouseY;
+            let isFirstMove = true;
+            let scale = 0, targetScale = 0;
+
+            document.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                if (isFirstMove) {
+                    cardX = mouseX; cardY = mouseY;
+                    ringX = mouseX; ringY = mouseY;
+                    isFirstMove = false;
+                    glassCard.classList.add('active');
+                    cursorRing.classList.add('active');
+                }
+                targetScale = 1;
+            });
+            document.addEventListener('mouseleave', () => { targetScale = 0; });
+            document.addEventListener('mouseenter', () => { targetScale = 1; });
+
+            document.querySelectorAll('a, button, .drop-zone, .api-key-input').forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    targetScale = 0;
+                    cursorRing.classList.add('expanded');
+                });
+                el.addEventListener('mouseleave', () => {
+                    targetScale = 1;
+                    cursorRing.classList.remove('expanded');
+                });
+            });
+
+            function updateCursor() {
+                cardX += (mouseX - cardX) * 0.08;
+                cardY += (mouseY - cardY) * 0.08;
+                ringX = mouseX; ringY = mouseY;
+                scale += (targetScale - scale) * 0.15;
+                const rs = cursorRing.classList.contains('expanded') ? 1.6 * scale : scale;
+                glassCard.style.transform = `translate3d(${cardX}px,${cardY}px,0) translate(-50%,-50%) scale(${scale})`;
+                cursorRing.style.transform = `translate3d(${ringX}px,${ringY}px,0) translate(-50%,-50%) scale(${rs})`;
+                requestAnimationFrame(updateCursor);
+            }
+            updateCursor();
+        }
+
+        // ——— Scroll Reveal ———
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    const inners = entry.target.querySelectorAll('.reveal-inner');
+                    inners.forEach((inner, i) => {
+                        inner.style.transitionDelay = `${i * 0.08}s`;
+                        inner.classList.add('visible');
+                    });
+                }
+            });
+        }, { rootMargin: '0px 0px -15% 0px', threshold: 0.1 });
+
+        document.querySelectorAll('.reveal-mask, .reveal-fade, .reveal-scale').forEach(el => {
+            revealObserver.observe(el);
+        });
+
+        const navBar = document.getElementById('nav-bar');
+        window.addEventListener('scroll', () => {
+            navBar.classList.toggle('scrolled', window.scrollY > 50);
+        });
+
+        // ——— Image Upload ———
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const preview = document.getElementById('upload-preview');
+        const previewImg = document.getElementById('preview-img');
+        const generateBtn = document.getElementById('generate-btn');
+        const apiKeyInput = document.getElementById('api-key-input');
+        const genStatus = document.getElementById('gen-status');
+        const statusText = document.getElementById('status-text');
+        const progressFill = document.getElementById('progress-fill');
+
+        let uploadedImageData = null;
+
+        ['dragenter','dragover'].forEach(evt => {
+            dropZone.addEventListener(evt, (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        });
+        ['dragleave','drop'].forEach(evt => {
+            dropZone.addEventListener(evt, (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
+        });
+        dropZone.addEventListener('drop', (e) => {
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) handleFile(file);
+        });
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) handleFile(e.target.files[0]);
+        });
+
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                uploadedImageData = e.target.result;
+                previewImg.src = uploadedImageData;
+                preview.classList.add('visible');
+                generateBtn.disabled = !apiKeyInput.value.trim();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        apiKeyInput.addEventListener('input', () => {
+            generateBtn.disabled = !(uploadedImageData && apiKeyInput.value.trim());
+        });
+
+        // ——— CSM.ai Image-to-3D ———
+        generateBtn.addEventListener('click', async () => {
+            const apiKey = apiKeyInput.value.trim();
+            if (!apiKey || !uploadedImageData) return;
+
+            genStatus.classList.add('visible');
+            generateBtn.disabled = true;
+            progressFill.style.width = '10%';
+            statusText.textContent = 'Uploading image...';
+
+            try {
+                const blob = dataURLtoBlob(uploadedImageData);
+                const formData = new FormData();
+                formData.append('image', blob, 'landscape.png');
+                formData.append('type', 'image-to-3d');
+
+                progressFill.style.width = '25%';
+                statusText.textContent = 'Creating 3D model...';
+
+                const createResponse = await fetch('https://api.csm.ai/image-to-3d', {
+                    method: 'POST',
+                    headers: { 'x-api-key': apiKey },
+                    body: formData
+                });
+
+                if (!createResponse.ok) throw new Error(`API error: ${createResponse.status}`);
+                const createData = await createResponse.json();
+                const taskId = createData.id || createData.task_id;
+
+                progressFill.style.width = '40%';
+                statusText.textContent = 'Generating 3D mesh...';
+
+                let modelUrl = null;
+                let attempts = 0;
+                const maxAttempts = 60;
+
+                while (!modelUrl && attempts < maxAttempts) {
+                    await new Promise(r => setTimeout(r, 3000));
+                    attempts++;
+                    const pollResponse = await fetch(`https://api.csm.ai/image-to-3d/${taskId}`, {
+                        headers: { 'x-api-key': apiKey }
+                    });
+                    if (pollResponse.ok) {
+                        const pollData = await pollResponse.json();
+                        const pct = 40 + Math.round((attempts / maxAttempts) * 50);
+                        progressFill.style.width = pct + '%';
+                        statusText.textContent = `Processing... ${Math.min(Math.round((attempts/maxAttempts)*100),95)}%`;
+
+                        if (pollData.status === 'completed' || pollData.model_url || pollData.glb_url) {
+                            modelUrl = pollData.model_url || pollData.glb_url || pollData.output_url;
+                        } else if (pollData.status === 'failed') {
+                            throw new Error('Generation failed on the server');
+                        }
+                    }
+                }
+
+                if (!modelUrl) throw new Error('Generation timed out — try again');
+
+                progressFill.style.width = '95%';
+                statusText.textContent = 'Loading model into viewer...';
+
+                createImageBasedModel(uploadedImageData);
+                addToGallery(uploadedImageData, 'Landscape #' + (galleryCount + 1));
+
+                progressFill.style.width = '100%';
+                statusText.textContent = 'Done! Scroll down to explore.';
+                setTimeout(() => {
+                    genStatus.classList.remove('visible');
+                    progressFill.style.width = '0%';
+                }, 3000);
+
+            } catch (err) {
+                console.error('CSM.ai error:', err);
+                statusText.textContent = 'Error: ' + err.message + ' — showing procedural terrain';
+                progressFill.style.width = '0%';
+                setTimeout(() => genStatus.classList.remove('visible'), 2000);
+                generateBtn.disabled = false;
+            }
+        });
+
+        function dataURLtoBlob(dataURL) {
+            const parts = dataURL.split(',');
+            const mime = parts[0].match(/:(.*?);/)[1];
+            const b64 = atob(parts[1]);
+            const arr = new Uint8Array(b64.length);
+            for (let i = 0; i < b64.length; i++) arr[i] = b64.charCodeAt(i);
+            return new Blob([arr], { type: mime });
+        }
+
+        // ——— Three.js Scene ———
+        const canvas = document.getElementById('three-canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x0a0a1f, 0.00008);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 3, 12);
+
+        scene.add(new THREE.AmbientLight(0x1a1a3e, 0.6));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(5, 10, 5);
+        scene.add(dirLight);
+
+        const greenLight = new THREE.PointLight(0x39FF14, 0.5, 30);
+        greenLight.position.set(-5, 5, 5);
+        scene.add(greenLight);
+
+        const purpleLight = new THREE.PointLight(0x6366f1, 0.3, 30);
+        purpleLight.position.set(5, 3, -5);
+        scene.add(purpleLight);
+
+        // Stars
+        const starsGeo = new THREE.BufferGeometry();
+        const starsCount = 2000;
+        const starsPos = new Float32Array(starsCount * 3);
+        for (let i = 0; i < starsCount * 3; i++) starsPos[i] = (Math.random() - 0.5) * 200;
+        starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPos, 3));
+        const starsMat = new THREE.PointsMaterial({
+            color: 0xffffff, size: 0.08, transparent: true, opacity: 0.6, sizeAttenuation: true
+        });
+        const stars = new THREE.Points(starsGeo, starsMat);
+        scene.add(stars);
+
+        // Grid
+        const gridHelper = new THREE.GridHelper(60, 60, 0x39FF14, 0x111133);
+        gridHelper.position.y = -2;
+        gridHelper.material.opacity = 0.15;
+        gridHelper.material.transparent = true;
+        scene.add(gridHelper);
+
+        // Pedestal
+        const pedestalGeo = new THREE.CylinderGeometry(2.5, 2.8, 0.3, 64);
+        const pedestalMat = new THREE.MeshStandardMaterial({
+            color: 0x151530, metalness: 0.8, roughness: 0.2, transparent: true, opacity: 0.8
+        });
+        const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
+        pedestal.position.y = -1.5;
+        scene.add(pedestal);
+
+        const ringGeo = new THREE.TorusGeometry(2.65, 0.03, 16, 100);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0x39FF14, transparent: true, opacity: 0.4 });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = -1.33;
+        scene.add(ring);
+
+        // ——— Procedural Terrain ———
+        function createTerrain() {
+            const geo = new THREE.PlaneGeometry(30, 30, 128, 128);
+            geo.rotateX(-Math.PI / 2);
+            const pos = geo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                const x = pos.getX(i);
+                const z = pos.getZ(i);
+                const h = Math.sin(x * 0.3) * Math.cos(z * 0.3) * 1.2
+                        + Math.sin(x * 0.1 + 1) * Math.sin(z * 0.15) * 0.8
+                        + Math.cos(x * 0.05) * Math.cos(z * 0.05) * 1.5;
+                pos.setY(i, h);
+            }
+            geo.computeVertexNormals();
+
+            const mat = new THREE.MeshStandardMaterial({
+                color: 0x1a1a4e, metalness: 0.3, roughness: 0.7, flatShading: true
+            });
+            const terrain = new THREE.Mesh(geo, mat);
+            terrain.position.y = -1.5;
+            terrain.name = 'terrain';
+            scene.add(terrain);
+
+            const wireMat = new THREE.MeshBasicMaterial({
+                color: 0x39FF14, wireframe: true, transparent: true, opacity: 0.04
+            });
+            const wireframe = new THREE.Mesh(geo.clone(), wireMat);
+            wireframe.position.y = -1.5;
+            wireframe.name = 'terrain-wire';
+            scene.add(wireframe);
+
+            return terrain;
+        }
+        const terrain = createTerrain();
+
+        setTimeout(() => {
+            document.getElementById('viewer-label').classList.add('visible');
+        }, 500);
+
+        // ——— Model from image ———
+        function createImageBasedModel(imageSrc) {
+            scene.children.filter(c => c.userData.isModel).forEach(c => scene.remove(c));
+
+            const texture = new THREE.TextureLoader().load(imageSrc);
+            texture.minFilter = THREE.LinearFilter;
+
+            const geo = new THREE.PlaneGeometry(6, 4, 32, 32);
+            const pos = geo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                const x = pos.getX(i);
+                const y = pos.getY(i);
+                const z = Math.sin(x * 0.8) * 0.3 + Math.cos(y * 0.6) * 0.2;
+                pos.setZ(i, z);
+            }
+            geo.computeVertexNormals();
+
+            const mat = new THREE.MeshStandardMaterial({
+                map: texture, side: THREE.DoubleSide, metalness: 0.1, roughness: 0.6
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.y = 0.5;
+            mesh.userData.isModel = true;
+            scene.add(mesh);
+
+            const borderGeo = new THREE.BoxGeometry(6.2, 4.2, 0.1);
+            const borderMat = new THREE.MeshStandardMaterial({
+                color: 0x39FF14, metalness: 0.9, roughness: 0.1,
+                emissive: 0x39FF14, emissiveIntensity: 0.1
+            });
+            const border = new THREE.Mesh(borderGeo, borderMat);
+            border.position.y = 0.5;
+            border.position.z = -0.1;
+            border.userData.isModel = true;
+            scene.add(border);
+
+            camera.position.set(0, 1.5, 8);
+            targetDistance = 8;
+        }
+
+        // ——— Orbit Controls (custom, no dependency) ———
+        let isDragging = false;
+        let prevMouse = { x: 0, y: 0 };
+        let cameraAngle = { theta: 0, phi: Math.PI / 4 };
+        let cameraDistance = 12;
+        let targetAngle = { theta: 0, phi: Math.PI / 4 };
+        let targetDistance = 12;
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 0) isDragging = true;
+            prevMouse = { x: e.clientX, y: e.clientY };
+        });
+        window.addEventListener('mouseup', () => { isDragging = false; });
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - prevMouse.x;
+            const dy = e.clientY - prevMouse.y;
+            targetAngle.theta -= dx * 0.005;
+            targetAngle.phi = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, targetAngle.phi + dy * 0.005));
+            prevMouse = { x: e.clientX, y: e.clientY };
+        });
+        canvas.addEventListener('wheel', (e) => {
+            targetDistance = Math.max(4, Math.min(30, targetDistance + e.deltaY * 0.01));
+            e.preventDefault();
+        }, { passive: false });
+
+        // Touch
+        let touchStart = null;
+        let touchDist = 0;
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            } else if (e.touches.length === 2) {
+                touchDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+            }
+        });
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (e.touches.length === 1 && isDragging) {
+                const dx = e.touches[0].clientX - prevMouse.x;
+                const dy = e.touches[0].clientY - prevMouse.y;
+                targetAngle.theta -= dx * 0.005;
+                targetAngle.phi = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, targetAngle.phi + dy * 0.005));
+                prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            } else if (e.touches.length === 2) {
+                const newDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                targetDistance = Math.max(4, Math.min(30, targetDistance - (newDist - touchDist) * 0.05));
+                touchDist = newDist;
+            }
+        }, { passive: false });
+        canvas.addEventListener('touchend', () => { isDragging = false; });
+
+        // ——— Animate ———
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+
+            // Smooth camera
+            cameraAngle.theta += (targetAngle.theta - cameraAngle.theta) * 0.05;
+            cameraAngle.phi += (targetAngle.phi - cameraAngle.phi) * 0.05;
+            cameraDistance += (targetDistance - cameraDistance) * 0.05;
+
+            camera.position.x = Math.sin(cameraAngle.theta) * Math.cos(cameraAngle.phi) * cameraDistance;
+            camera.position.y = Math.sin(cameraAngle.phi) * cameraDistance + 2;
+            camera.position.z = Math.cos(cameraAngle.theta) * Math.cos(cameraAngle.phi) * cameraDistance;
+            camera.lookAt(0, 0, 0);
+
+            // Animate terrain
+            const terrainMesh = scene.getObjectByName('terrain');
+            if (terrainMesh) {
+                const pos = terrainMesh.geometry.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const x = pos.getX(i);
+                    const z = pos.getZ(i);
+                    const h = Math.sin(x * 0.3 + t * 0.2) * Math.cos(z * 0.3) * 1.2
+                            + Math.sin(x * 0.1 + 1) * Math.sin(z * 0.15) * 0.8
+                            + Math.cos(x * 0.05) * Math.cos(z * 0.05) * 1.5;
+                    pos.setY(i, h);
+                }
+                pos.needsUpdate = true;
+                terrainMesh.geometry.computeVertexNormals();
+
+                const wireMesh = scene.getObjectByName('terrain-wire');
+                if (wireMesh) {
+                    wireMesh.geometry.attributes.position.array.set(pos.array);
+                    wireMesh.geometry.attributes.position.needsUpdate = true;
+                    wireMesh.geometry.computeVertexNormals();
+                }
+            }
+
+            // Animate model
+            scene.children.filter(c => c.userData.isModel).forEach(c => {
+                if (c.geometry && c.geometry.type === 'PlaneGeometry') {
+                    c.rotation.y = t * 0.3;
+                }
+            });
+
+            ring.rotation.z = t * 0.5;
+            greenLight.intensity = 0.3 + Math.sin(t * 2) * 0.2;
+            stars.rotation.y = t * 0.01;
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ——— Gallery ———
+        let galleryCount = 0;
+
+        function addToGallery(imageSrc, title) {
+            galleryCount++;
+            const grid = document.getElementById('gallery-grid');
+            const placeholder = grid.querySelector('.gallery-card-placeholder');
+            if (placeholder) placeholder.closest('.gallery-card').remove();
+
+            const card = document.createElement('div');
+            card.className = 'gallery-card reveal-scale';
+            card.innerHTML = `
+                <div class="gallery-card-info">
+                    <div class="gallery-card-title">${title}</div>
+                    <div class="gallery-card-desc">AI-generated 3D model</div>
+                </div>
+            `;
+            grid.prepend(card);
+            revealObserver.observe(card);
+        }
+
+        // ——— Scroll-driven viewer camera ———
+        const viewerSection = document.getElementById('viewer');
+        const viewerObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const rect = viewerSection.getBoundingClientRect();
+                    const progress = 1 - (rect.top / window.innerHeight);
+                    const clamped = Math.max(0, Math.min(1, progress));
+                    targetAngle.theta = clamped * Math.PI * 2;
+                    targetDistance = 12 - clamped * 4;
+                }
+            });
+        }, { threshold: 0.3 });
+        viewerObserver.observe(viewerSection);
+
+    });
+    </script>
+
+</body>
+</html>
